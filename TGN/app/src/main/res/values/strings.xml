@@ -3,4 +3,25 @@
     <string name="drawer_open">Open the drawer</string>
     <string name="drawer_close">Close the drawer</string>
     <string name="image_content_description">Image related to article</string>
+    <string name="error_load_sources">Unable to load news sources</string>
+    <string name="error_load_articles">Unable to load articles</string>
+    <string name="category_all">all</string>
+    <string name="json_countries_key">countries</string>
+    <string name="json_code_key">code</string>
+    <string name="json_name_key">name</string>
+    <string name="json_languages_key">languages</string>
+    <string name="app_title_number">TGN (%d)</string>
+    <string name="submenu_title_topics">Topics</string>
+    <string name="submenu_title_countries">Countries</string>
+    <string name="submenu_title_languages">Languages</string>
+    <string name="json_sources_key">sources</string>
+    <string name="json_articles_key">articles</string>
+    <string name="orientation_info_state">ORIENTATION_INFO_STATE</string>
+    <string name="orientation_default_sources_state">ORIENTATION_DEFAULT_SOURCES_STATE</string>
+    <string name="orientation_filters_state">ORIENTATION_FILTERS_STATE</string>
+    <string name="orientation_selected_source_state">ORIENTATION_SELECTED_SOURCE_STATE</string>
+    <string name="orientation_articles_state">ORIENTATION_ARTICLES_STATE</string>
+    <string name="orientation_should_reload_menu_state">ORIENTATION_SHOULD_RELOAD_MENU_STATE</string>
+    <string name="orientation_current_article">ORIENTATION_CURRENT_ARTICLE</string>
+    <string name="orientation_colors">ORIENTATION_COLORS</string>
 </resources>

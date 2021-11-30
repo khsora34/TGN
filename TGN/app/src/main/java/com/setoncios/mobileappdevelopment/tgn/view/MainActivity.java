@@ -10,6 +10,8 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -45,21 +47,23 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class MainActivity extends AppCompatActivity implements NewsSourcesObservable, ArticlesObservable, ArticleDetailViewDelegate {
     private static final String TAG = "MainActivity";
     private ActionBarDrawerToggle drawerToggle;
     private DrawerLayout drawerLayout;
-    private ArrayAdapter<String> drawerAdapter;
+    private DrawerAdapter drawerAdapter;
     private ArticleAdapter articleAdapter;
     private ListView listView;
     private ViewPager2 viewPager;
     private Menu menu;
 
+    private Map<CategoryType, List<String>> sortedKeys = new HashMap<>();
     private Map<String, String> countries = new HashMap<>();
     private Map<String, String> languages = new HashMap<>();
-    private Map<CategoryType, List<String>> sortedKeys = new HashMap<>();
+    private HashMap<String, Integer> colors = new HashMap<>();
 
     private HashMap<CategoryType, HashMap<String, HashSet<NewsSource>>> info = new HashMap<>();
     private ArrayList<NewsSource> defaultSources = new ArrayList<>();
@@ -79,10 +83,12 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
         this.drawerLayout = this.findViewById(R.id.drawer_layout);
         this.listView = this.findViewById(R.id.drawer);
         this.viewPager = this.findViewById(R.id.view_pager);
-        this.drawerAdapter = new ArrayAdapter<>(
+        this.drawerAdapter = new DrawerAdapter(
                 this,
                 R.layout.drawer_item,
-                this.filteredItems
+                this.filteredItems,
+                this.filteredSources,
+                this.colors
         );
         this.articleAdapter = new ArticleAdapter(this.articles, this, this);
         this.viewPager.setAdapter(this.articleAdapter);
@@ -154,7 +160,7 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
 
     @Override
     public void onNewsSourcesError() {
-        this.runOnUiThread(() -> this.showError("Unable to load news sources"));
+        this.runOnUiThread(() -> this.showError(getString(R.string.error_load_sources)));
     }
 
     @Override
@@ -164,7 +170,7 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
 
     @Override
     public void onArticlesError() {
-        this.runOnUiThread(() -> this.showError("Unable to load articles"));
+        this.runOnUiThread(() -> this.showError(getString(R.string.error_load_articles)));
     }
 
     @Override
@@ -178,12 +184,12 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
         this.info.put(CategoryType.TOPIC, new HashMap<>());
         this.info.put(CategoryType.COUNTRY, new HashMap<>());
         this.info.put(CategoryType.LANGUAGE, new HashMap<>());
-        Objects.requireNonNull(this.info.get(CategoryType.TOPIC)).put("all", new HashSet<>());
-        Objects.requireNonNull(this.info.get(CategoryType.COUNTRY)).put("all", new HashSet<>());
-        Objects.requireNonNull(this.info.get(CategoryType.LANGUAGE)).put("all", new HashSet<>());
-        this.filters.put(CategoryType.TOPIC, "all");
-        this.filters.put(CategoryType.COUNTRY, "all");
-        this.filters.put(CategoryType.LANGUAGE, "all");
+        Objects.requireNonNull(this.info.get(CategoryType.TOPIC)).put(getString(R.string.category_all), new HashSet<>());
+        Objects.requireNonNull(this.info.get(CategoryType.COUNTRY)).put(getString(R.string.category_all), new HashSet<>());
+        Objects.requireNonNull(this.info.get(CategoryType.LANGUAGE)).put(getString(R.string.category_all), new HashSet<>());
+        this.filters.put(CategoryType.TOPIC, getString(R.string.category_all));
+        this.filters.put(CategoryType.COUNTRY, getString(R.string.category_all));
+        this.filters.put(CategoryType.LANGUAGE, getString(R.string.category_all));
     }
 
     private void loadData() {
@@ -211,11 +217,11 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
             sb.append(line);
         }
         JSONObject mainJson = new JSONObject(sb.toString());
-        JSONArray jsonArray = mainJson.getJSONArray("countries");
+        JSONArray jsonArray = mainJson.getJSONArray(getString(R.string.json_countries_key));
         for (int i = 0; i < jsonArray.length(); i++) {
             try {
                 JSONObject jsonObject = jsonArray.getJSONObject(i);
-                this.countries.put(jsonObject.getString("code").toLowerCase(Locale.ROOT), jsonObject.getString("name"));
+                this.countries.put(jsonObject.getString(getString(R.string.json_code_key)).toLowerCase(Locale.ROOT), jsonObject.getString(getString(R.string.json_name_key)));
             } catch (JSONException e) {
                 e.printStackTrace();
                 continue;
@@ -232,11 +238,11 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
             sb.append(line);
         }
         JSONObject mainJson = new JSONObject(sb.toString());
-        JSONArray jsonArray = mainJson.getJSONArray("languages");
+        JSONArray jsonArray = mainJson.getJSONArray(getString(R.string.json_languages_key));
         for (int i = 0; i < jsonArray.length(); i++) {
             try {
                 JSONObject jsonObject = jsonArray.getJSONObject(i);
-                this.languages.put(jsonObject.getString("code").toLowerCase(Locale.ROOT), jsonObject.getString("name"));
+                this.languages.put(jsonObject.getString(getString(R.string.json_code_key)).toLowerCase(Locale.ROOT), jsonObject.getString(getString(R.string.json_name_key)));
             } catch (JSONException e) {
                 e.printStackTrace();
                 continue;
@@ -288,10 +294,33 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
         } else if (this.articles.isEmpty()) {
             this.setTitle(String.format(
                     Locale.getDefault(),
-                    "TGN (%d)",
+                    getString(R.string.app_title_number),
                     this.filteredItems.size()
             ));
         }
+    }
+
+    private void fillMenuInformation() {
+        HashMap<String, HashSet<NewsSource>> topics = Objects.requireNonNull(this.info.get(CategoryType.TOPIC));
+        HashMap<String, HashSet<NewsSource>> countries = Objects.requireNonNull(this.info.get(CategoryType.COUNTRY));
+        HashMap<String, HashSet<NewsSource>> languages = Objects.requireNonNull(this.info.get(CategoryType.LANGUAGE));
+        List<String> topicsKeys = new ArrayList<>(topics.keySet());
+        Collections.sort(topicsKeys);
+        Set<Integer> usedColors = new HashSet<>();
+        for (int i = 0; i < topicsKeys.size(); i++) {
+            int color;
+            do {
+                color = generateColor();
+            } while (usedColors.contains(color));
+            usedColors.add(color);
+            this.colors.put(topicsKeys.get(i), color);
+        }
+        List<String> countryKeys = new ArrayList<>(countries.keySet());
+        Collections.sort(countryKeys, Comparator.comparing(element -> this.countries.getOrDefault(element, element).toLowerCase(Locale.ROOT)));
+        this.sortedKeys.put(CategoryType.COUNTRY, countryKeys);
+        List<String> languageKeys = new ArrayList<>(languages.keySet());
+        Collections.sort(languageKeys, Comparator.comparing(element -> this.languages.getOrDefault(element, element).toLowerCase(Locale.ROOT)));
+        this.sortedKeys.put(CategoryType.LANGUAGE, languageKeys);
     }
 
     private void buildMenu() {
@@ -299,33 +328,32 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
             this.shouldReloadMenu = true;
             return;
         }
+        this.fillMenuInformation();
         this.menu.clear();
-        HashMap<String, HashSet<NewsSource>> topics = Objects.requireNonNull(this.info.get(CategoryType.TOPIC));
-        HashMap<String, HashSet<NewsSource>> countries = Objects.requireNonNull(this.info.get(CategoryType.COUNTRY));
-        HashMap<String, HashSet<NewsSource>> languages = Objects.requireNonNull(this.info.get(CategoryType.LANGUAGE));
-        List<String> topicsKeys = new ArrayList<>(topics.keySet());
+        List<String> topicsKeys = new ArrayList<>(Objects.requireNonNull(this.info.get(CategoryType.TOPIC)).keySet());
         Collections.sort(topicsKeys);
-        List<String> countryKeys = new ArrayList<>(countries.keySet());
-        Collections.sort(countryKeys, Comparator.comparing(element -> this.countries.getOrDefault(element, element).toLowerCase(Locale.ROOT)));
-        this.sortedKeys.put(CategoryType.COUNTRY, countryKeys);
-        List<String> languageKeys = new ArrayList<>(languages.keySet());
-        Collections.sort(languageKeys, Comparator.comparing(element -> this.languages.getOrDefault(element, element).toLowerCase(Locale.ROOT)));
-        this.sortedKeys.put(CategoryType.LANGUAGE, languageKeys);
+        List<String> countryKeys = Objects.requireNonNull(this.sortedKeys.get(CategoryType.COUNTRY));
+        List<String> languageKeys = Objects.requireNonNull(this.sortedKeys.get(CategoryType.LANGUAGE));
         if (topicsKeys.size() > 0) {
-            SubMenu subMenu = this.menu.addSubMenu("Topics");
+            SubMenu subMenu = this.menu.addSubMenu(getString(R.string.submenu_title_topics));
             for (int j = 0; j < topicsKeys.size(); j++) {
-                subMenu.add(CategoryType.TOPIC.getId(), j, j, topicsKeys.get(j));
+                MenuItem menuItem = subMenu.add(CategoryType.TOPIC.getId(), j, j, topicsKeys.get(j));
+                if (this.colors.containsKey(topicsKeys.get(j))) {
+                    SpannableString spanString = new SpannableString(topicsKeys.get(j));
+                    spanString.setSpan(new ForegroundColorSpan(this.colors.get(topicsKeys.get(j))), 0,     spanString.length(), 0); //fix the color to white
+                    menuItem.setTitle(spanString);
+                }
             }
         }
         if (countryKeys.size() > 0) {
-            SubMenu subMenu = this.menu.addSubMenu("Countries");
+            SubMenu subMenu = this.menu.addSubMenu(getString(R.string.submenu_title_countries));
             for (int j = 0; j < countryKeys.size(); j++) {
                 String countryName = this.countries.containsKey(countryKeys.get(j)) ? this.countries.get(countryKeys.get(j)) : countryKeys.get(j);
                 subMenu.add(CategoryType.COUNTRY.getId(), j, j, countryName);
             }
         }
         if (languageKeys.size() > 0) {
-            SubMenu subMenu = this.menu.addSubMenu("Languages");
+            SubMenu subMenu = this.menu.addSubMenu(getString(R.string.submenu_title_languages));
             for (int j = 0; j < languageKeys.size(); j++) {
                 String languageName = this.languages.containsKey(languageKeys.get(j)) ? this.languages.get(languageKeys.get(j)) : languageKeys.get(j);
                 subMenu.add(CategoryType.LANGUAGE.getId(), j, j, languageName);
@@ -341,7 +369,7 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
         ArrayList<NewsSource> defaultSources = new ArrayList<>();
         try {
             JSONObject jsonObject = new JSONObject(response);
-            JSONArray sources = jsonObject.getJSONArray("sources");
+            JSONArray sources = jsonObject.getJSONArray(getString(R.string.json_sources_key));
             for (int i = 0; i < sources.length(); i++) {
                 JSONObject sourcesJSONObject = sources.getJSONObject(i);
                 NewsSource newsSource = new NewsSource(sourcesJSONObject);
@@ -359,9 +387,9 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
                 Objects.requireNonNull(languages.get(newsSource.getLanguage())).add(newsSource);
                 defaultSources.add(newsSource);
             }
-            topics.put("all", new HashSet<>(defaultSources));
-            countries.put("all", new HashSet<>(defaultSources));
-            languages.put("all", new HashSet<>(defaultSources));
+            topics.put(getString(R.string.category_all), new HashSet<>(defaultSources));
+            countries.put(getString(R.string.category_all), new HashSet<>(defaultSources));
+            languages.put(getString(R.string.category_all), new HashSet<>(defaultSources));
             this.info.put(CategoryType.TOPIC, topics);
             this.info.put(CategoryType.COUNTRY, countries);
             this.info.put(CategoryType.LANGUAGE, languages);
@@ -390,7 +418,7 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
         try {
             this.articles.clear();
             JSONObject jsonObject = new JSONObject(response);
-            JSONArray sources = jsonObject.getJSONArray("articles");
+            JSONArray sources = jsonObject.getJSONArray(getString(R.string.json_articles_key));
             for (int i = 0; i < sources.length(); i++) {
                 JSONObject sourcesJSONObject;
                 try {
@@ -419,28 +447,37 @@ public class MainActivity extends AppCompatActivity implements NewsSourcesObserv
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         this.drawerLayout.closeDrawer(this.listView);
-        outState.putSerializable("ORIENTATION_INFO_STATE", this.info);
-        outState.putSerializable("ORIENTATION_DEFAULT_SOURCES_STATE", this.defaultSources);
-        outState.putSerializable("ORIENTATION_FILTERS_STATE", this.filters);
-        outState.putSerializable("ORIENTATION_SELECTED_SOURCE_STATE", this.selectedSource);
-        outState.putSerializable("ORIENTATION_ARTICLES_STATE", this.articles);
-        outState.putBoolean("ORIENTATION_SHOULD_RELOAD_MENU_STATE", this.shouldReloadMenu);
-        outState.putInt("ORIENTATION_CURRENT_ARTICLE", this.viewPager.getCurrentItem());
+        outState.putSerializable(getString(R.string.orientation_colors), this.colors);
+        outState.putSerializable(getString(R.string.orientation_info_state), this.info);
+        outState.putSerializable(getString(R.string.orientation_default_sources_state), this.defaultSources);
+        outState.putSerializable(getString(R.string.orientation_filters_state), this.filters);
+        outState.putSerializable(getString(R.string.orientation_selected_source_state), this.selectedSource);
+        outState.putSerializable(getString(R.string.orientation_articles_state), this.articles);
+        outState.putBoolean(getString(R.string.orientation_should_reload_menu_state), this.shouldReloadMenu);
+        outState.putInt(getString(R.string.orientation_current_article), this.viewPager.getCurrentItem());
         super.onSaveInstanceState(outState);
     }
 
     @Override
     protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
-        this.info = (HashMap<CategoryType, HashMap<String, HashSet<NewsSource>>>) savedInstanceState.getSerializable("ORIENTATION_INFO_STATE");
-        this.defaultSources = (ArrayList<NewsSource>) savedInstanceState.getSerializable("ORIENTATION_DEFAULT_SOURCES_STATE");
-        this.filters = (HashMap<CategoryType, String>) savedInstanceState.getSerializable("ORIENTATION_FILTERS_STATE");
-        this.selectedSource = (NewsSource) savedInstanceState.getSerializable("ORIENTATION_SELECTED_SOURCE_STATE");
+        this.colors = (HashMap<String, Integer>) savedInstanceState.getSerializable(getString(R.string.orientation_colors));
+        this.info = (HashMap<CategoryType, HashMap<String, HashSet<NewsSource>>>) savedInstanceState.getSerializable(getString(R.string.orientation_info_state));
+        this.defaultSources = (ArrayList<NewsSource>) savedInstanceState.getSerializable(getString(R.string.orientation_default_sources_state));
+        this.filters = (HashMap<CategoryType, String>) savedInstanceState.getSerializable(getString(R.string.orientation_filters_state));
+        this.selectedSource = (NewsSource) savedInstanceState.getSerializable(getString(R.string.orientation_selected_source_state));
         this.articles.clear();
-        this.articles.addAll((ArrayList<Article>) savedInstanceState.getSerializable("ORIENTATION_ARTICLES_STATE"));
-        this.shouldReloadMenu = (boolean) savedInstanceState.getSerializable("ORIENTATION_SHOULD_RELOAD_MENU_STATE");
+        this.articles.addAll((ArrayList<Article>) savedInstanceState.getSerializable(getString(R.string.orientation_articles_state)));
+        this.shouldReloadMenu = (boolean) savedInstanceState.getSerializable(getString(R.string.orientation_should_reload_menu_state));
         if (this.articles.size() > 0) {
-            this.viewPager.setCurrentItem(savedInstanceState.getInt("ORIENTATION_CURRENT_ARTICLE"));
+            this.viewPager.setCurrentItem(savedInstanceState.getInt(getString(R.string.orientation_current_article)));
         }
+    }
+
+    private int generateColor() {
+        int r = (int) (Math.random() * 255);
+        int g = (int) (Math.random() * 255);
+        int b = (int) (Math.random() * 255);
+        return (0xff) << 24 | (r & 0xff) << 16 | (g & 0xff) << 8 | (b & 0xff);
     }
 }

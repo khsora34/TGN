@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class ArticleAdapter extends RecyclerView.Adapter<ArticleDetailViewHolder> {
-    private Context context;
+    private final Context context;
     private final Picasso picasso;
     private final List<Article> articles;
     private final ArticleDetailViewDelegate delegate;
@@ -68,6 +68,7 @@ public class ArticleAdapter extends RecyclerView.Adapter<ArticleDetailViewHolder
         } else {
             picasso.load(article.getUrlToImage())
                     .error(R.drawable.brokenimage)
+                    .placeholder(R.drawable.loading)
                     .into(holder.imageView);
         }
         this.setText(

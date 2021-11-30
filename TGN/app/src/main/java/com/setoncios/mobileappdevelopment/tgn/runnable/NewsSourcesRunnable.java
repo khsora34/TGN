@@ -15,7 +15,7 @@ import java.net.URL;
 public class NewsSourcesRunnable implements Runnable {
     private static final String TAG = "NewsSourcesRunnable";
 
-    private NewsSourcesObservable observable;
+    private final NewsSourcesObservable observable;
 
     public NewsSourcesRunnable(NewsSourcesObservable observable) {
         this.observable = observable;
@@ -23,7 +23,7 @@ public class NewsSourcesRunnable implements Runnable {
 
     @Override
     public void run() {
-        runCached();
+        runOnline();
     }
 
     private void runOnline() {
@@ -40,7 +40,7 @@ public class NewsSourcesRunnable implements Runnable {
             connection.addRequestProperty("User-Agent", "");
             connection.connect();
             if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                // TODO: Add error handle.
+                this.observable.onNewsSourcesError();
                 return;
             }
             InputStream stream = connection.getInputStream();

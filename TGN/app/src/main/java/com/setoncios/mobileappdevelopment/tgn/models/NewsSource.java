@@ -3,7 +3,9 @@ package com.setoncios.mobileappdevelopment.tgn.models;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class NewsSource {
+import java.io.Serializable;
+
+public class NewsSource implements Serializable {
     private final String id;
     private final String name;
     private final String category;

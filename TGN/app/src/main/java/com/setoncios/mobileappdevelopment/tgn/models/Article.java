@@ -5,19 +5,15 @@ import androidx.annotation.Nullable;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.Date;
-import java.util.Locale;
 
-public class Article {
-    private static final String DATE_DEFAULT_FORMAT = "yyyy-MM-dd'T'HH:mm:ss'Z'";
-
+public class Article implements Serializable {
     private String author;
     private String title;
     private String description;

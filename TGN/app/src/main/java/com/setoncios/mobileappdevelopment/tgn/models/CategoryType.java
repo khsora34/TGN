@@ -1,6 +1,8 @@
 package com.setoncios.mobileappdevelopment.tgn.models;
 
-public enum CategoryType {
+import java.io.Serializable;
+
+public enum CategoryType implements Serializable {
     TOPIC, COUNTRY, LANGUAGE;
 
     public static CategoryType getFromId(int id) {

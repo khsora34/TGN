@@ -43,7 +43,7 @@ public class ArticlesRunnable implements Runnable {
             connection.addRequestProperty("User-Agent", "");
             connection.connect();
             if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                // TODO: Add error handle.
+                this.observable.onArticlesError();
                 return;
             }
             InputStream stream = connection.getInputStream();
